@@ -2,19 +2,23 @@
 
 One-click deployment template for [Clawdbot](https://github.com/clawdbot/clawdbot) on Railway. Clawdbot is an AI assistant platform supporting WhatsApp, Telegram, Discord, and other messaging channels.
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/clawdbot)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/mpxXJp?referralCode=igaHaH&utm_medium=integration&utm_source=template&utm_campaign=generic)
 
 ## Quick Start
 
 ### 1. Deploy the Template
 
 1. Click the **Deploy on Railway** button above
-2. Fill in your AI provider API key (at least one required):
-   - `ANTHROPIC_API_KEY` - for Claude models
-   - `OPENAI_API_KEY` - for OpenAI models
-   - `OPENROUTER_API_KEY` - for OpenRouter models
-3. The `CLAWDBOT_GATEWAY_PASSWORD` is auto-generated for you
-4. Click **Deploy**
+2. Fill in the environment variables:
+   - **AI Provider** (at least one required):
+     - `ANTHROPIC_API_KEY` - for Claude models
+     - `OPENAI_API_KEY` - for OpenAI models
+     - `OPENROUTER_API_KEY` - for OpenRouter models
+   - **Channels** (optional - add the ones you want):
+     - `TELEGRAM_BOT_TOKEN` - from [@BotFather](https://t.me/BotFather)
+     - `DISCORD_BOT_TOKEN` - from [Discord Developer Portal](https://discord.com/developers/applications)
+   - `CLAWDBOT_GATEWAY_PASSWORD` is auto-generated for you
+3. Click **Deploy**
 
 ### 2. Add a Volume (Required)
 
@@ -25,42 +29,35 @@ Railway containers lose their filesystem on each deploy. You must attach a volum
 3. Set **Mount Path** to `/data`
 4. Click **Add** then **Redeploy** the service
 
-### 3. Configure Channels via SSH
+### 3. Enable Public Networking
 
-After your service is running, use Railway's SSH to configure messaging channels:
+1. Go to **Settings** → **Networking**
+2. Click **Generate Domain**
+3. Your gateway will be available at `https://your-app.railway.app`
 
+### 4. Access the Web UI
+
+Open your gateway URL with your password to access the Control UI:
+
+```
+https://your-app.railway.app?token=YOUR_GATEWAY_PASSWORD
+```
+
+The Control UI provides:
+- Chat interface
+- Configuration management
+- Session monitoring
+- Channel status
+
+### 5. Test Your Bot
+
+If you configured Telegram or Discord tokens, your bot is already live. Send it a message to test.
+
+**First-time Telegram DM:** You'll receive a pairing code. Approve it via SSH:
 ```bash
-# Install Railway CLI (one-time setup)
-npm install -g @railway/cli
-
-# Login to Railway
-railway login
-
-# Link to your project (follow the prompts)
-railway link
-
-# SSH into your running container
 railway ssh
+clawdbot pairing approve telegram <CODE>
 ```
-
-Once connected via SSH, run the onboarding wizard:
-
-```bash
-# Inside the Railway container
-clawdbot onboard
-```
-
-The wizard will guide you through setting up:
-- **Telegram** - Get a bot token from [@BotFather](https://t.me/BotFather)
-- **Discord** - Create a bot at [Discord Developer Portal](https://discord.com/developers/applications)
-- **WhatsApp** - Scan QR code for WhatsApp Web
-- **Other channels** - Slack, Signal, Teams, etc.
-
-### 4. Verify It's Working
-
-1. Enable public networking: **Settings** → **Networking** → **Generate Domain**
-2. Visit your gateway URL to see the dashboard
-3. Send a message to your bot on Telegram/Discord/etc.
 
 ## Environment Variables
 
@@ -70,6 +67,8 @@ The wizard will guide you through setting up:
 | `ANTHROPIC_API_KEY` | No* | - | API key for Claude models |
 | `OPENAI_API_KEY` | No* | - | API key for OpenAI models |
 | `OPENROUTER_API_KEY` | No* | - | API key for OpenRouter models |
+| `TELEGRAM_BOT_TOKEN` | No | - | Telegram bot token from @BotFather |
+| `DISCORD_BOT_TOKEN` | No | - | Discord bot token |
 | `CLAWDBOT_STATE_DIR` | Auto | `/data/.clawdbot` | Config storage (set by Dockerfile) |
 
 > *At least one AI provider API key is required
@@ -93,20 +92,21 @@ The volume at `/data` persists across deploys:
 
 ### Adding a New Channel
 
+**Telegram/Discord:** Add via environment variables in Railway dashboard, then redeploy:
+- `TELEGRAM_BOT_TOKEN`
+- `DISCORD_BOT_TOKEN`
+
+**WhatsApp** (requires SSH for QR scan):
 ```bash
 railway ssh
-
-# Then inside the container:
-clawdbot onboard  # Run wizard again, or use specific commands:
-
-# Telegram
-clawdbot channels add telegram
-
-# Discord
-clawdbot channels add discord
-
-# WhatsApp
 clawdbot channels add whatsapp
+# Scan the QR code with your phone
+```
+
+**Other channels** (Slack, Signal, Teams, etc.):
+```bash
+railway ssh
+clawdbot onboard
 ```
 
 ### Checking Channel Status

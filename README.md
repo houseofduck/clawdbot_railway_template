@@ -6,114 +6,138 @@ One-click deployment template for [Clawdbot](https://github.com/clawdbot/clawdbo
 
 ## Quick Start
 
-1. Click the "Deploy on Railway" button above
-2. Set required environment variables (see below)
-3. **Add a volume** mounted at `/data` (see Volume Setup)
-4. Deploy and wait for the service to start
-5. Configure your messaging channels via CLI
+### 1. Deploy the Template
+
+1. Click the **Deploy on Railway** button above
+2. Fill in your AI provider API key (at least one required):
+   - `ANTHROPIC_API_KEY` - for Claude models
+   - `OPENAI_API_KEY` - for OpenAI models
+   - `OPENROUTER_API_KEY` - for OpenRouter models
+3. The `CLAWDBOT_GATEWAY_PASSWORD` is auto-generated for you
+4. Click **Deploy**
+
+### 2. Add a Volume (Required)
+
+Railway containers lose their filesystem on each deploy. You must attach a volume:
+
+1. After deployment, go to your service in the Railway dashboard
+2. Right-click the service → **Attach Volume**
+3. Set **Mount Path** to `/data`
+4. Click **Add** then **Redeploy** the service
+
+### 3. Configure Channels via SSH
+
+After your service is running, use Railway's SSH to configure messaging channels:
+
+```bash
+# Install Railway CLI (one-time setup)
+npm install -g @railway/cli
+
+# Login to Railway
+railway login
+
+# Link to your project (follow the prompts)
+railway link
+
+# SSH into your running container
+railway ssh
+```
+
+Once connected via SSH, run the onboarding wizard:
+
+```bash
+# Inside the Railway container
+clawdbot onboard
+```
+
+The wizard will guide you through setting up:
+- **Telegram** - Get a bot token from [@BotFather](https://t.me/BotFather)
+- **Discord** - Create a bot at [Discord Developer Portal](https://discord.com/developers/applications)
+- **WhatsApp** - Scan QR code for WhatsApp Web
+- **Other channels** - Slack, Signal, Teams, etc.
+
+### 4. Verify It's Working
+
+1. Enable public networking: **Settings** → **Networking** → **Generate Domain**
+2. Visit your gateway URL to see the dashboard
+3. Send a message to your bot on Telegram/Discord/etc.
 
 ## Environment Variables
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `CLAWDBOT_STATE_DIR` | Auto | `/data/.clawdbot` | Config storage (set by Dockerfile) |
-| `CLAWDBOT_GATEWAY_TOKEN` | Yes | - | Gateway authentication token |
+| `CLAWDBOT_GATEWAY_PASSWORD` | Auto | *(generated)* | Gateway authentication (auto-generated) |
 | `ANTHROPIC_API_KEY` | No* | - | API key for Claude models |
 | `OPENAI_API_KEY` | No* | - | API key for OpenAI models |
 | `OPENROUTER_API_KEY` | No* | - | API key for OpenRouter models |
+| `CLAWDBOT_STATE_DIR` | Auto | `/data/.clawdbot` | Config storage (set by Dockerfile) |
 
 > *At least one AI provider API key is required
 
-### Generating a Gateway Token
+## Volume Storage
 
-Use Railway's secret generator or create a secure random token:
-
-```bash
-openssl rand -hex 32
-```
-
-## Volume Setup
-
-**Important**: Railway containers lose their filesystem on each deploy. You must attach a volume for persistent storage.
-
-### Adding a Volume in Railway
-
-1. Go to your service in the Railway dashboard
-2. Click **Settings** → **Volumes**
-3. Click **Add Volume**
-4. Set **Mount Path** to `/data`
-5. Recommended size: **1GB minimum**
-
-### What's Stored in the Volume
+The volume at `/data` persists across deploys:
 
 ```
 /data/
 ├── .clawdbot/          # Clawdbot configuration
 │   ├── clawdbot.json   # Main config file
-│   ├── credentials/    # Channel credentials
-│   └── agents/         # Agent state
+│   ├── credentials/    # Channel credentials (Telegram tokens, etc.)
+│   └── agents/         # Agent state and auth profiles
 └── clawd/              # Workspace
     ├── skills/         # Custom skills
     └── memory/         # Conversation memory
 ```
 
-## Network Configuration
+## Common Tasks
 
-- **Internal port**: 18789
-- **Protocol**: HTTP/WebSocket
-- **Public networking**: Enable in Railway settings to access the gateway dashboard
-
-### Enabling Public Access
-
-1. Go to **Settings** → **Networking**
-2. Click **Generate Domain** or add a custom domain
-3. Access your gateway at `https://your-domain.railway.app`
-
-## Post-Deployment Setup
-
-### Connecting via CLI
-
-You can manage your Clawdbot instance using the CLI from your local machine:
+### Adding a New Channel
 
 ```bash
-# Install clawdbot locally
-npm install -g clawdbot
+railway ssh
 
-# Connect to your Railway gateway
-clawdbot gateway connect https://your-domain.railway.app --token YOUR_GATEWAY_TOKEN
+# Then inside the container:
+clawdbot onboard  # Run wizard again, or use specific commands:
+
+# Telegram
+clawdbot channels add telegram
+
+# Discord
+clawdbot channels add discord
+
+# WhatsApp
+clawdbot channels add whatsapp
 ```
 
-### Configuring Channels
-
-#### Telegram
+### Checking Channel Status
 
 ```bash
-# Get a bot token from @BotFather on Telegram
-clawdbot channels add telegram --token YOUR_BOT_TOKEN
+railway ssh
+
+# Inside container:
+clawdbot channels status
+clawdbot channels logs telegram
 ```
 
-#### Discord
+### Creating/Managing Agents
 
 ```bash
-# Create a bot at discord.com/developers/applications
-clawdbot channels add discord --token YOUR_BOT_TOKEN
-```
+railway ssh
 
-#### WhatsApp
-
-```bash
-# Requires WhatsApp Business API credentials
-clawdbot channels add whatsapp --setup
-```
-
-### Creating Agents
-
-```bash
-# Create a new agent
+# Inside container:
+clawdbot agents list
 clawdbot agents create my-agent
+clawdbot agents config my-agent --provider anthropic --model claude-sonnet-4-20250514
+```
 
-# Configure the agent's AI provider
-clawdbot agents config my-agent --provider anthropic --model claude-3-5-sonnet-20241022
+### Viewing Logs
+
+From Railway dashboard:
+- Click **Deployments** → select deployment → **View Logs**
+
+Or via CLI:
+```bash
+railway logs
 ```
 
 ## Architecture
@@ -142,57 +166,56 @@ clawdbot agents config my-agent --provider anthropic --model claude-3-5-sonnet-2
 ### Gateway won't start
 
 **Check logs for errors:**
-- Go to your service in Railway dashboard
-- Click **Deployments** → select latest deployment → **View Logs**
+- Railway dashboard → **Deployments** → **View Logs**
 
 **Common causes:**
 - Missing volume mount at `/data`
-- Missing `CLAWDBOT_GATEWAY_TOKEN` environment variable
 - No AI provider API key configured
 
 ### State not persisting between deploys
 
-**Ensure volume is properly mounted:**
-1. Check that a volume exists in **Settings** → **Volumes**
-2. Verify mount path is exactly `/data`
-3. Check that the volume has available space
+1. Verify volume exists: **Settings** → **Volumes**
+2. Confirm mount path is exactly `/data`
+3. Check volume has available space
 
-### Cannot connect from local CLI
+### SSH connection fails
 
-**Verify network configuration:**
-1. Ensure public networking is enabled
-2. Check that you're using the correct gateway URL
-3. Verify your `CLAWDBOT_GATEWAY_TOKEN` matches
+1. Ensure the service is running (not crashed)
+2. Verify you're logged in: `railway login`
+3. Link your project: `railway link`
 
 ### Channel not responding
 
-**Debug channel connection:**
 ```bash
+railway ssh
+
+# Check status
 clawdbot channels status
-clawdbot channels logs <channel-name>
+
+# View channel logs
+clawdbot channels logs telegram
 ```
 
 ### Health check failing
 
-The gateway exposes a health endpoint at `/`. If health checks fail:
-1. Increase `healthcheckTimeout` in `railway.toml`
-2. Check that port 18789 is being used correctly
-3. Review deployment logs for startup errors
+1. Check deployment logs for startup errors
+2. Verify port 18789 is exposed
+3. Increase `healthcheckTimeout` in `railway.toml` if needed
 
 ## Updating Clawdbot
 
-To update to the latest version of Clawdbot:
+To update to the latest version:
 
-1. Go to your service in Railway dashboard
-2. Click **Deployments** → **Redeploy**
+1. Railway dashboard → **Deployments** → **Redeploy**
 
 The Dockerfile uses `clawdbot@latest`, so each rebuild fetches the newest version.
 
 ## Resources
 
-- [Clawdbot Documentation](https://github.com/clawdbot/clawdbot)
+- [Clawdbot Documentation](https://docs.clawd.bot)
+- [Clawdbot GitHub](https://github.com/clawdbot/clawdbot)
 - [Railway Documentation](https://docs.railway.app)
-- [Railway Templates Guide](https://docs.railway.app/guides/templates)
+- [Railway CLI Guide](https://docs.railway.com/guides/cli)
 
 ## License
 

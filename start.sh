@@ -11,4 +11,4 @@ if [ ! -f /data/.clawdbot/clawdbot.json ]; then
 fi
 
 # Start the gateway
-exec clawdbot gateway
+exec clawdbot gateway --bind lan --port 18789

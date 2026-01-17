@@ -6,23 +6,21 @@ RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 # Install clawdbot globally
 RUN npm install -g clawdbot@latest
 
-# Create non-root user for security
-RUN useradd -m -s /bin/bash -u 1000 clawdbot
-
 # Create persistent data directories
 RUN mkdir -p /data/.clawdbot /data/clawd && \
-    chown -R clawdbot:clawdbot /data
+    chown -R node:node /data
 
-USER clawdbot
-WORKDIR /home/clawdbot
+# Use existing node user (UID 1000) for security
+USER node
+WORKDIR /home/node
 
 # Set environment for persistent storage
 ENV CLAWDBOT_STATE_DIR=/data/.clawdbot
-ENV HOME=/home/clawdbot
+ENV HOME=/home/node
 
 EXPOSE 18789
 
-COPY --chown=clawdbot:clawdbot start.sh /home/clawdbot/start.sh
-RUN chmod +x /home/clawdbot/start.sh
+COPY --chown=node:node start.sh /home/node/start.sh
+RUN chmod +x /home/node/start.sh
 
-CMD ["/home/clawdbot/start.sh"]
+CMD ["/home/node/start.sh"]
